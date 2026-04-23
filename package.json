@@ -7,7 +7,9 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "workers": "node src/workers/workerRegistry.js",
-    "migrate": "node migrations/migrate.js"
+    "migrate": "node migrations/migrate.js",
+    "vps:bootstrap": "bash scripts/vps-bootstrap.sh",
+    "vps:deploy": "bash scripts/vps-deploy.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.26.0",

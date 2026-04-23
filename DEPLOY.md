@@ -2,35 +2,38 @@
 
 ## VPS Setup (Ubuntu 22.04)
 
-### 1. Install dependencies
+### 1. Clone project on VPS
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs postgresql nginx certbot python3-certbot-nginx
-
-sudo npm install -g pm2
+sudo mkdir -p /opt/wa-supervisor
+sudo chown -R $USER:$USER /opt/wa-supervisor
+git clone https://github.com/luhur99/wasupervisor.git /opt/wa-supervisor
+cd /opt/wa-supervisor
 ```
 
-### 2. Create database
+### 2. Install system dependencies (automated)
+```bash
+sudo bash scripts/vps-bootstrap.sh
+```
+
+### 3. Create database
 ```bash
 sudo -u postgres psql -c "CREATE USER wa_supervisor_user WITH PASSWORD 'your_strong_password';"
 sudo -u postgres psql -c "CREATE DATABASE wa_supervisor OWNER wa_supervisor_user;"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE wa_supervisor TO wa_supervisor_user;"
 ```
 
-### 3. Deploy app
+### 4. Configure environment
 ```bash
-mkdir -p /opt/wa-supervisor
-# Upload your project files here (rsync/git clone)
-
-cd /opt/wa-supervisor
 cp .env.example .env
 # Edit .env with your real values
-
-npm install --production
-node migrations/migrate.js
 ```
 
-### 4. Generate internal API key for PHP dashboard
+### 5. Deploy application (automated)
+```bash
+bash scripts/vps-deploy.sh
+```
+
+### 6. Generate internal API key for PHP dashboard
 ```bash
 node -e "
 const crypto = require('crypto');
@@ -41,15 +44,19 @@ console.log('HASH (put in VPS .env INTERNAL_API_KEY_HASH):', hash);
 "
 ```
 
-### 5. Start with PM2
+### 7. Ensure PM2 starts on reboot
 ```bash
-pm2 start ecosystem.config.js
 pm2 save
 pm2 startup  # follow the printed command to enable on boot
 ```
 
-### 6. Nginx config
-Create `/etc/nginx/sites-available/wa-supervisor`:
+### 8. Nginx config
+Copy template:
+```bash
+sudo cp deploy/nginx/wa-supervisor.conf /etc/nginx/sites-available/wa-supervisor
+```
+
+Edit domain name in file (`api.your-domain.com`), then enable site:
 ```nginx
 server {
     listen 80;
@@ -81,17 +88,23 @@ server {
 }
 ```
 ```bash
-sudo ln -s /etc/nginx/sites-available/wa-supervisor /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/wa-supervisor /etc/nginx/sites-enabled/wa-supervisor
 sudo certbot --nginx -d api.your-domain.com
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-### 7. Firewall
+### 9. Firewall
 ```bash
 sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 sudo ufw enable
+```
+
+### 10. Update app on next deploy
+```bash
+cd /opt/wa-supervisor
+bash scripts/vps-deploy.sh
 ```
 
 ---
