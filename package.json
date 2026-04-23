@@ -9,7 +9,8 @@
     "workers": "node src/workers/workerRegistry.js",
     "migrate": "node migrations/migrate.js",
     "vps:bootstrap": "bash scripts/vps-bootstrap.sh",
-    "vps:deploy": "bash scripts/vps-deploy.sh"
+    "vps:deploy": "bash scripts/vps-deploy.sh",
+    "vps:first-run": "bash scripts/vps-first-run.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.26.0",

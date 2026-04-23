@@ -2,6 +2,17 @@
 
 ## VPS Setup (Ubuntu 22.04)
 
+### Quick start (one command)
+After cloning to `/opt/wa-supervisor`, run:
+```bash
+cd /opt/wa-supervisor
+sudo DB_PASSWORD='your_strong_password' bash scripts/vps-first-run.sh
+```
+
+This command installs dependencies, creates/updates PostgreSQL role + DB, prepares `.env`, runs migrations, and starts PM2.
+
+---
+
 ### 1. Clone project on VPS
 ```bash
 sudo mkdir -p /opt/wa-supervisor
@@ -22,6 +33,8 @@ sudo -u postgres psql -c "CREATE DATABASE wa_supervisor OWNER wa_supervisor_user
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE wa_supervisor TO wa_supervisor_user;"
 ```
 
+Note: you can skip this step if you used the quick start one-command setup above.
+
 ### 4. Configure environment
 ```bash
 cp .env.example .env
@@ -32,6 +45,8 @@ cp .env.example .env
 ```bash
 bash scripts/vps-deploy.sh
 ```
+
+If you ran quick start, this step is already included.
 
 ### 6. Generate internal API key for PHP dashboard
 ```bash
