@@ -1,0 +1,181 @@
+Webhooks (Terima Pesan)
+Terima data secara real-time ke server Anda setiap kali ada pesan masuk. Anda dapat menggunakan Webhook ini untuk membuat sistem Auto-Reply, Chatbot AI, atau merekam data ke database Anda.
+
+1Format Webhook WA Unofficial
+Jika aplikasi Anda ditautkan dengan WhatsApp Unofficial, sistem kami akan mengirimkan JSON ini ke URL Anda:
+{
+  "event": "message.received",
+  "channel": "whatsapp",
+  "session_id": "SESSION_12345",
+  "data": {
+    "message_id": "msg_987654321",
+    "from": "6281234567890",
+    "sender_name": "Budi Santoso",
+    "type": "text",
+    "text": "test",
+    "media_url": null,
+    "button_id": null,
+    "timestamp": 1709650000
+  }
+}
+
+2
+Format Webhook WA Official (Meta)
+Jika aplikasi Anda ditautkan dengan Meta Official, sistem kami akan langsung mem-forward JSON asli (Struktur Entry/Changes/Messages) dari server Meta:
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "1234567890",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "628123456789",
+              "phone_number_id": "987654321"
+            },
+            "contacts": [
+              {
+                "profile": { "name": "Budi Santoso" },
+                "wa_id": "6281234567890"
+              }
+            ],
+            "messages": [
+              {
+                "from": "6281234567890",
+                "id": "wamid.HBgNNjI4M...",
+                "timestamp": "1709650000",
+                "text": { "body": "Halo, mau pesan!" },
+                "type": "text"
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}
+
+Contoh Auto-Reply PHP (Untuk WA Unofficial)
+// SESUDAH (Ganti isi string di dalam CodeBlock Unofficial)
+<?php
+/**
+ * CLOUDCHAT WEBHOOK - PHP 7.0+ ULTIMATE VERSION
+ * Fitur: Handle Teks, Promo (Gambar+Tombol), Media Inbound, & Anti-Timeout
+ */
+
+// 1. Respon 200 OK & Tutup koneksi segera agar CloudChat tidak timeout (2 detik limit)
+http_response_code(200);
+header('Content-Type: application/json; charset=utf-8');
+
+// Memutus koneksi ke client tapi script tetap jalan di background
+if (function_exists('fastcgi_finish_request')) {
+    fastcgi_finish_request();
+}
+
+// 2. Tangkap data Webhook
+$json = file_get_contents('php://input');
+$payload = json_decode($json, true);
+
+// Proteksi: Hanya proses jika ada data pesan masuk
+if (!isset($payload['event']) || $payload['event'] !== 'message.received') {
+    exit;
+}
+
+// Ekstrak data menggunakan fitur PHP 7 (Null Coalescing Operator ??)
+$sender        = $payload['data']['from'] ?? '';
+$msgType       = $payload['data']['type'] ?? 'text'; // image, video, document, text
+$msgText       = strtolower($payload['data']['text'] ?? "");
+$incomingMedia = $payload['data']['media_url'] ?? null;
+
+/**
+ * 3. FUNGSI HELPER: BALAS PESAN UNIVERSAL
+ * Bisa kirim teks, tombol, dan melampirkan gambar sekaligus.
+ */
+function sendReply($to, $type, $content, $mediaUrl = null) {
+    $apiUrl = "https://app.cloudchat.id/api/public/v1/messages";
+    $apiKey = "YOUR_API_KEY_RAHASIA"; // Ganti dengan API Key milik Anda
+
+    $postData = [
+        "channel" => "whatsapp",
+        "to"      => $to,
+        "type"    => $type,
+        "content" => $content
+    ];
+
+    // Jika tipe pesan butuh lampiran media luar (seperti gambar di atas tombol)
+    if ($mediaUrl) {
+        $postData["media_url"] = $mediaUrl;
+    }
+
+    $curl = curl_init($apiUrl);
+    curl_setopt_array($curl, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => json_encode($postData),
+        CURLOPT_HTTPHEADER     => [
+            "Authorization: Bearer " . $apiKey,
+            "Content-Type: application/json"
+        ],
+        CURLOPT_TIMEOUT => 10
+    ]);
+
+    $response = curl_exec($curl);
+    curl_close($curl);
+    return $response;
+}
+
+/**
+ * 4. LOGIKA AUTO-REPLY LENGKAP
+ */
+
+// SKENARIO A: Jika User Mengirim Gambar (Media)
+if ($msgType === 'image') {
+    $content = [
+        "text"    => "Wah, fotonya keren banget! 😍 Mau di-edit pakai teknologi AI Cloudchat?",
+        "footer"  => "CloudChat Media Service",
+        "buttons" => [
+            ["id" => "edit_yes", "text" => "Ya, Edit Pakai AI"],
+            ["id" => "edit_no", "text" => "Gak, Simpan Saja"]
+        ]
+    ];
+    // Balas pakai tombol interaktif
+    sendReply($sender, "button", $content);
+}
+
+// SKENARIO B: Jika User Mengetik "promo" (Keyword)
+elseif ($msgText === "promo") {
+    $content = [
+        "title"   => "🌟 PROMO TERBATAS",
+        "text"    => "Dapatkan diskon 50% untuk langganan CloudChat hari ini saja!",
+        "footer"  => "Klik tombol di bawah ini:",
+        "buttons" => [
+            ["id" => "claim", "text" => "Ambil Promo"],
+            ["id" => "cs", "text" => "Tanya Admin"]
+        ]
+    ];
+    // Kirim Balasan: Gambar Promo + Tombol Pilihan
+    sendReply($sender, "button", $content, "https://app.cloudchat.id/icons/twitter-x.png");
+}
+
+// SKENARIO C: Jika User Mengetik "test"
+elseif ($msgText === "test") {
+    $replyText = [
+        "text" => "Sistem CloudChat berjalan sempurna! ✅
+
+Nomor Anda: " . $sender . "
+Waktu: " . date("H:i:s")
+    ];
+    sendReply($sender, "text", $replyText);
+}
+
+// SKENARIO D: Jika user klik tombol (Handle Button Click)
+elseif (isset($payload['data']['button_id'])) {
+    $buttonId = $payload['data']['button_id'];
+    sendReply($sender, "text", ["text" => "Anda baru saja memilih aksi: " . $buttonId]);
+}
+
+exit;
+?>
